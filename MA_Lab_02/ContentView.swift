@@ -7,7 +7,6 @@
 //
 import SwiftUI
 
-// MARK: - Model
 
 struct MenuItem: Identifiable {
     let id = UUID()
