@@ -7,6 +7,9 @@
 //
 import SwiftUI
 import Combine
+import PhotosUI
+import MapKit
+import CoreLocation
 
 
 struct MenuItem: Identifiable {
@@ -128,6 +131,43 @@ struct MenuRow: View {
     }
 }
 
+struct ImagePicker: UIViewControllerRepresentable {
+    
+    @Binding var selectedImage: UIImage?
+    var sourceType: UIImagePickerController.SourceType
+    
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = sourceType
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        
+        let parent: ImagePicker
+        
+        init(_ parent: ImagePicker) {
+            self.parent = parent
+        }
+        
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            
+            if let image = info[.originalImage] as? UIImage {
+                parent.selectedImage = image
+            }
+            
+            picker.dismiss(animated: true)
+        }
+    }
+}
 
 struct DetailView: View {
     
@@ -243,10 +283,37 @@ struct FoodView: View {
     }
 }
 
+struct RestaurantLocationView: View {
+    
+    let restaurantCoordinate = CLLocationCoordinate2D(
+        latitude: 41.0316,
+        longitude: 21.3347
+    )
+    
+    var body: some View {
+        
+        Map(position: .constant(
+            .region(
+                MKCoordinateRegion(
+                    center: restaurantCoordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                )
+            )
+        )) {
+            Marker("Замислен ресторан", coordinate: restaurantCoordinate)
+        }
+        .navigationTitle("Локација")
+    }
+}
+
 
 struct ContentView: View {
     
     @StateObject var viewModel = MenuViewModel()
+    
+    @State private var selectedImage: UIImage?
+    @State private var showImagePicker = false
+    @State private var sourceType: UIImagePickerController.SourceType = .photoLibrary
     
     var body: some View {
         
@@ -263,6 +330,56 @@ struct ContentView: View {
                     Image(systemName: "fork.knife")
                     Text("Храна")
                 }
+            
+            NavigationView {
+                VStack(spacing: 20) {
+                    
+                    if let selectedImage = selectedImage {
+                        Image(uiImage: selectedImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: 250)
+                            .cornerRadius(12)
+                            .padding()
+                    } else {
+                        Image(systemName: "camera.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 120, height: 120)
+                            .foregroundColor(.gray)
+                    }
+                    
+                    Button("Сликај фотографија") {
+                        sourceType = .camera
+                        showImagePicker = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    Button("Прикачи фотографија") {
+                        sourceType = .photoLibrary
+                        showImagePicker = true
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Spacer()
+                }
+                .navigationTitle("Фотографии")
+                .sheet(isPresented: $showImagePicker) {
+                    ImagePicker(selectedImage: $selectedImage, sourceType: sourceType)
+                }
+            }
+            .tabItem {
+                Image(systemName: "camera.fill")
+                Text("Камера")
+            }
+            
+            NavigationView {
+                RestaurantLocationView()
+            }
+            .tabItem {
+                Image(systemName: "mappin.and.ellipse")
+                Text("Локација")
+            }
         }
         .environmentObject(viewModel)
     }
